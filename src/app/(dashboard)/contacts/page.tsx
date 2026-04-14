@@ -304,9 +304,12 @@ function AddContactModal({
     return Object.keys(e).length === 0;
   };
 
+  const [serverError, setServerError] = useState("");
+
   const handleSubmit = async () => {
     if (!validate()) return;
     setSaving(true);
+    setServerError("");
     try {
       const res = await fetch("/api/contacts", {
         method: "POST",
@@ -314,9 +317,14 @@ function AddContactModal({
         body: JSON.stringify(form),
       });
       const data = await res.json();
+      if (!res.ok) {
+        setServerError(data.error || "Failed to save contact");
+        setSaving(false);
+        return;
+      }
       if (data.contact) onAdded(data.contact);
     } catch {
-      // Handle error
+      setServerError("Network error. Please try again.");
     }
     setSaving(false);
   };
@@ -439,20 +447,25 @@ function AddContactModal({
             />
           </div>
         </div>
-        <div className="px-6 py-4 border-t border-border flex gap-2">
-          <button
-            onClick={onClose}
-            className="flex-1 px-4 py-2.5 border border-border text-foreground text-sm font-medium rounded-xl hover:bg-secondary cursor-pointer"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={saving}
-            className="flex-1 px-4 py-2.5 gradient-bg text-white text-sm font-medium rounded-xl hover:opacity-90 cursor-pointer disabled:opacity-50"
-          >
-            {saving ? "Saving..." : "Save Contact"}
-          </button>
+        <div className="px-6 py-4 border-t border-border space-y-2">
+          {serverError && (
+            <p className="text-sm text-red-400 text-center">{serverError}</p>
+          )}
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2.5 border border-border text-foreground text-sm font-medium rounded-xl hover:bg-secondary cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={saving}
+              className="flex-1 px-4 py-2.5 gradient-bg text-white text-sm font-medium rounded-xl hover:opacity-90 cursor-pointer disabled:opacity-50"
+            >
+              {saving ? "Saving..." : "Save Contact"}
+            </button>
+          </div>
         </div>
       </motion.div>
     </motion.div>

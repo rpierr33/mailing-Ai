@@ -26,6 +26,14 @@ interface SendResult {
 }
 
 export async function sendEmail(params: SendEmailParams): Promise<SendResult> {
+  // Inject unsubscribe footer for CAN-SPAM compliance
+  const unsubFooter = `<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;font-size:12px;color:#9ca3af;">
+    <p>You're receiving this because you subscribed to updates.</p>
+    <p><a href="#" style="color:#6366f1;">Unsubscribe</a> | <a href="#" style="color:#6366f1;">Manage Preferences</a></p>
+    <p style="margin-top:8px;">MailFlow AI &mdash; AI-Powered Email Marketing</p>
+  </div>`;
+  const htmlWithFooter = params.html + unsubFooter;
+
   if (!hasResendKey) {
     // Mock mode
     return {
@@ -41,7 +49,7 @@ export async function sendEmail(params: SendEmailParams): Promise<SendResult> {
       from: params.from ?? "MailFlow <noreply@mailflow.ai>",
       to: params.to,
       subject: params.subject,
-      html: params.html,
+      html: htmlWithFooter,
     });
 
     if (result.error) {

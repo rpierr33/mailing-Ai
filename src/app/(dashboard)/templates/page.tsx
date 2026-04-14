@@ -19,6 +19,7 @@ import {
   ChevronDown,
   Sparkles,
   ArrowLeft,
+  Check,
 } from "lucide-react";
 import type { Template } from "@/types";
 
@@ -71,20 +72,61 @@ export default function TemplatesPage() {
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
   const [templateName, setTemplateName] = useState("Untitled Template");
 
+  const [saved, setSaved] = useState(false);
+
+  // Pre-built template block configs
+  const PREBUILT_BLOCKS: Record<string, Block[]> = {
+    Welcome: [
+      { id: "b1", type: "header", content: "Welcome to MailFlow!", bgColor: "#6366f1", textColor: "#ffffff", fontSize: 22 },
+      { id: "b2", type: "text", content: "Thanks for signing up! We're thrilled to have you on board. Here's everything you need to get started.", fontSize: 15, textColor: "#d1d5db", align: "left" },
+      { id: "b3", type: "button", label: "Get Started", url: "#", bgColor: "#6366f1", textColor: "#ffffff", borderRadius: 8 },
+      { id: "b4", type: "footer", address: "123 Main St, City, State 12345", unsubscribe: "Unsubscribe from these emails" },
+    ],
+    Newsletter: [
+      { id: "b1", type: "header", content: "Weekly Newsletter", bgColor: "#0f172a", textColor: "#ffffff", fontSize: 20 },
+      { id: "b2", type: "text", content: "Here's what happened this week — the highlights, insights, and updates you need to know.", fontSize: 15, textColor: "#d1d5db", align: "left" },
+      { id: "b3", type: "divider", color: "#374151" },
+      { id: "b4", type: "columns", left: "Feature story goes here with key details and a compelling hook.", right: "Second story or sidebar content with supporting information." },
+      { id: "b5", type: "button", label: "Read More", url: "#", bgColor: "#6366f1", textColor: "#ffffff", borderRadius: 8 },
+      { id: "b6", type: "footer", address: "123 Main St, City, State 12345", unsubscribe: "Unsubscribe from these emails" },
+    ],
+    Promo: [
+      { id: "b1", type: "header", content: "SALE", bgColor: "#dc2626", textColor: "#ffffff", fontSize: 28 },
+      { id: "b2", type: "text", content: "For a limited time, enjoy huge savings on everything in our store. Don't miss out!", fontSize: 16, textColor: "#d1d5db", align: "center" },
+      { id: "b3", type: "button", label: "Shop Now — 20% Off", url: "#", bgColor: "#dc2626", textColor: "#ffffff", borderRadius: 12 },
+      { id: "b4", type: "text", content: "Use code SAVE20 at checkout. Offer expires Sunday at midnight.", fontSize: 13, textColor: "#9ca3af", align: "center" },
+      { id: "b5", type: "footer", address: "123 Main St, City, State 12345", unsubscribe: "Unsubscribe from these emails" },
+    ],
+    Announcement: [
+      { id: "b1", type: "header", content: "Big Announcement", bgColor: "#7c3aed", textColor: "#ffffff", fontSize: 22 },
+      { id: "b2", type: "text", content: "We've been working on something exciting and can't wait to share it with you.", fontSize: 15, textColor: "#d1d5db", align: "left" },
+      { id: "b3", type: "image", url: "", alt: "Product image", width: 100 },
+      { id: "b4", type: "button", label: "Learn More", url: "#", bgColor: "#7c3aed", textColor: "#ffffff", borderRadius: 8 },
+      { id: "b5", type: "footer", address: "123 Main St, City, State 12345", unsubscribe: "Unsubscribe from these emails" },
+    ],
+    Minimal: [
+      { id: "b1", type: "text", content: "Hey there,\n\nJust a quick note to let you know about something important.\n\nWe've made some updates that we think you'll love. Check them out when you get a chance.", fontSize: 15, textColor: "#d1d5db", align: "left" },
+      { id: "b2", type: "button", label: "Check It Out", url: "#", bgColor: "#6366f1", textColor: "#ffffff", borderRadius: 8 },
+      { id: "b3", type: "text", content: "Thanks,\nThe MailFlow Team", fontSize: 14, textColor: "#9ca3af", align: "left" },
+    ],
+    Holiday: [
+      { id: "b1", type: "header", content: "Happy Holidays!", bgColor: "#15803d", textColor: "#ffffff", fontSize: 24 },
+      { id: "b2", type: "text", content: "Wishing you joy and warmth this holiday season. Thank you for being part of our community this year!", fontSize: 15, textColor: "#d1d5db", align: "center" },
+      { id: "b3", type: "button", label: "Explore Gift Guide", url: "#", bgColor: "#15803d", textColor: "#ffffff", borderRadius: 12 },
+      { id: "b4", type: "footer", address: "123 Main St, City, State 12345", unsubscribe: "Unsubscribe from these emails" },
+    ],
+  };
+
   useEffect(() => {
-    fetch("/api/campaigns")
-      .then(() => {
-        // Load templates from API
-        setTemplates([
-          { id: "tpl1", name: "Welcome", description: "Clean welcome email for new subscribers", blocks: [], category: "onboarding", isPrebuilt: true, createdAt: "", updatedAt: "", userId: null },
-          { id: "tpl2", name: "Newsletter", description: "Weekly newsletter layout", blocks: [], category: "newsletter", isPrebuilt: true, createdAt: "", updatedAt: "", userId: null },
-          { id: "tpl3", name: "Promo", description: "Sale / discount template", blocks: [], category: "promotion", isPrebuilt: true, createdAt: "", updatedAt: "", userId: null },
-          { id: "tpl4", name: "Announcement", description: "Product launch announcement", blocks: [], category: "announcement", isPrebuilt: true, createdAt: "", updatedAt: "", userId: null },
-          { id: "tpl5", name: "Minimal", description: "Text-focused simple email", blocks: [], category: "minimal", isPrebuilt: true, createdAt: "", updatedAt: "", userId: null },
-          { id: "tpl6", name: "Holiday", description: "Seasonal greetings template", blocks: [], category: "seasonal", isPrebuilt: true, createdAt: "", updatedAt: "", userId: null },
-        ]);
-        setLoading(false);
-      });
+    setTemplates([
+      { id: "tpl1", name: "Welcome", description: "Clean welcome email for new subscribers", blocks: [], category: "onboarding", isPrebuilt: true, createdAt: "", updatedAt: "", userId: null },
+      { id: "tpl2", name: "Newsletter", description: "Weekly newsletter layout", blocks: [], category: "newsletter", isPrebuilt: true, createdAt: "", updatedAt: "", userId: null },
+      { id: "tpl3", name: "Promo", description: "Sale / discount template", blocks: [], category: "promotion", isPrebuilt: true, createdAt: "", updatedAt: "", userId: null },
+      { id: "tpl4", name: "Announcement", description: "Product launch announcement", blocks: [], category: "announcement", isPrebuilt: true, createdAt: "", updatedAt: "", userId: null },
+      { id: "tpl5", name: "Minimal", description: "Text-focused simple email", blocks: [], category: "minimal", isPrebuilt: true, createdAt: "", updatedAt: "", userId: null },
+      { id: "tpl6", name: "Holiday", description: "Seasonal greetings template", blocks: [], category: "seasonal", isPrebuilt: true, createdAt: "", updatedAt: "", userId: null },
+    ]);
+    setLoading(false);
   }, []);
 
   const selectedBlock = blocks.find((b) => b.id === selectedBlockId);
@@ -187,8 +229,35 @@ export default function TemplatesPage() {
                   <Smartphone className="w-3.5 h-3.5" />
                 </button>
               </div>
-              <button className="flex items-center gap-1.5 px-3 py-1.5 gradient-bg text-white text-xs font-medium rounded-lg hover:opacity-90 cursor-pointer">
-                <Save className="w-3.5 h-3.5" /> Save
+              <button
+                onClick={() => {
+                  setSaved(true);
+                  setTimeout(() => setSaved(false), 2000);
+                  // Store in local templates list
+                  const newTpl: Template = {
+                    id: `tpl-${Date.now()}`,
+                    name: templateName,
+                    description: `Custom template with ${blocks.length} blocks`,
+                    blocks: blocks as unknown as Template["blocks"],
+                    category: "custom",
+                    isPrebuilt: false,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    userId: "demo-user-001",
+                  };
+                  setTemplates((prev) => {
+                    const existing = prev.findIndex((t) => t.name === templateName && !t.isPrebuilt);
+                    if (existing >= 0) {
+                      const updated = [...prev];
+                      updated[existing] = newTpl;
+                      return updated;
+                    }
+                    return [newTpl, ...prev];
+                  });
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 gradient-bg text-white text-xs font-medium rounded-lg hover:opacity-90 cursor-pointer"
+              >
+                {saved ? <><Check className="w-3.5 h-3.5" /> Saved</> : <><Save className="w-3.5 h-3.5" /> Save</>}
               </button>
             </div>
           </div>
@@ -298,6 +367,8 @@ export default function TemplatesPage() {
             transition={{ delay: i * 0.05 }}
             onClick={() => {
               setTemplateName(t.name);
+              setBlocks(PREBUILT_BLOCKS[t.name] ?? []);
+              setSelectedBlockId(null);
               setEditing(true);
             }}
           >

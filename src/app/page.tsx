@@ -532,9 +532,9 @@ export default function LandingPage() {
             <span className="text-sm font-semibold text-foreground">MailFlow AI</span>
           </div>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
-            <a href="#" className="hover:text-foreground transition-colors">Privacy</a>
-            <a href="#" className="hover:text-foreground transition-colors">Terms</a>
-            <a href="#" className="hover:text-foreground transition-colors">Contact</a>
+            <a href="mailto:hello@mailflow.ai" className="hover:text-foreground transition-colors">Contact</a>
+            <a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a>
+            <a href="#features" className="hover:text-foreground transition-colors">Features</a>
           </div>
           <p className="text-sm text-muted-foreground">
             &copy; {new Date().getFullYear()} MailFlow AI. All rights reserved.

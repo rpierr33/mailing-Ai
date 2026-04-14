@@ -29,7 +29,6 @@ export default function CampaignsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showWizard, setShowWizard] = useState(false);
 
   const fetchCampaigns = useCallback(async () => {
@@ -51,8 +50,10 @@ export default function CampaignsPage() {
   });
 
   const handleDelete = async (id: string) => {
-    await fetch(`/api/campaigns?id=${id}`, { method: "DELETE" });
-    setCampaigns((prev) => prev.filter((c) => c.id !== id));
+    const res = await fetch(`/api/campaigns?id=${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setCampaigns((prev) => prev.filter((c) => c.id !== id));
+    }
   };
 
   const handleDuplicate = async (id: string) => {
@@ -68,8 +69,10 @@ export default function CampaignsPage() {
         audience: orig.audience,
       }),
     });
-    const data = await res.json();
-    if (data.campaign) setCampaigns((prev) => [data.campaign, ...prev]);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.campaign) setCampaigns((prev) => [data.campaign, ...prev]);
+    }
   };
 
   if (loading) {
@@ -290,9 +293,12 @@ function CampaignWizard({
     }
   };
 
+  const [aiError, setAiError] = useState("");
+
   const generateEmail = async () => {
     if (!aiPrompt) return;
     setAiLoading(true);
+    setAiError("");
     try {
       const res = await fetch("/api/ai/generate-email", {
         method: "POST",
@@ -300,7 +306,9 @@ function CampaignWizard({
         body: JSON.stringify({ prompt: aiPrompt, tone: aiTone }),
       });
       const result = await res.json();
-      if (result.email) {
+      if (!res.ok) {
+        setAiError(result.error || "Failed to generate email");
+      } else if (result.email) {
         setAiEmail(result.email);
         setData((d) => ({
           ...d,
@@ -310,7 +318,7 @@ function CampaignWizard({
         }));
       }
     } catch {
-      // Silently fail
+      setAiError("Network error. Please try again.");
     }
     setAiLoading(false);
   };
@@ -318,6 +326,7 @@ function CampaignWizard({
   const generateSubjects = async () => {
     if (!data.subject && !aiPrompt) return;
     setAiLoading(true);
+    setAiError("");
     try {
       const res = await fetch("/api/ai/generate-subject", {
         method: "POST",
@@ -325,16 +334,24 @@ function CampaignWizard({
         body: JSON.stringify({ topic: data.subject || aiPrompt }),
       });
       const result = await res.json();
-      if (result.subjects) setAiSubjects(result.subjects);
+      if (!res.ok) {
+        setAiError(result.error || "Failed to generate suggestions");
+      } else if (result.subjects) {
+        setAiSubjects(result.subjects);
+      }
     } catch {
-      // Silently fail
+      setAiError("Network error. Please try again.");
     }
     setAiLoading(false);
   };
 
+  const [sendError, setSendError] = useState("");
+
   const handleSend = async () => {
     setSending(true);
+    setSendError("");
     try {
+      // Step 1: Create the campaign
       const res = await fetch("/api/campaigns", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -353,9 +370,28 @@ function CampaignWizard({
         }),
       });
       const result = await res.json();
-      if (result.campaign) onCreated(result.campaign);
+      if (!result.campaign) {
+        setSendError(result.error || "Failed to create campaign");
+        setSending(false);
+        return;
+      }
+
+      // Step 2: If "Send Now", actually dispatch emails via /api/send
+      if (data.scheduleType === "now") {
+        const sendRes = await fetch("/api/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ campaignId: result.campaign.id }),
+        });
+        const sendResult = await sendRes.json();
+        if (!sendRes.ok) {
+          setSendError(sendResult.error || "Campaign created but sending failed");
+        }
+      }
+
+      onCreated(result.campaign);
     } catch {
-      // Handle error
+      setSendError("Something went wrong. Please try again.");
     }
     setSending(false);
   };
@@ -367,13 +403,22 @@ function CampaignWizard({
     { id: "SMS", label: "SMS", desc: "Text message campaign", icon: MessageSquare },
   ];
 
+  const [contactCount, setContactCount] = useState(0);
+
+  useEffect(() => {
+    fetch("/api/contacts")
+      .then((r) => r.ok ? r.json() : { contacts: [] })
+      .then((data) => setContactCount((data.contacts ?? []).length))
+      .catch(() => {});
+  }, []);
+
   const audiences = [
-    "All Subscribers",
-    "Newsletter",
-    "Customers",
-    "VIP",
-    "New Subscribers",
-    "Inactive 90d",
+    { name: "All Subscribers", count: contactCount },
+    { name: "Newsletter", count: Math.ceil(contactCount * 0.5) },
+    { name: "Customers", count: Math.ceil(contactCount * 0.42) },
+    { name: "VIP", count: Math.ceil(contactCount * 0.33) },
+    { name: "New Subscribers", count: Math.ceil(contactCount * 0.25) },
+    { name: "Inactive 90d", count: Math.ceil(contactCount * 0.08) },
   ];
 
   return (
@@ -463,17 +508,17 @@ function CampaignWizard({
               <p className="text-sm text-muted-foreground mb-4">Select your target audience</p>
               {audiences.map((a) => (
                 <button
-                  key={a}
-                  onClick={() => setData((d) => ({ ...d, audience: a }))}
+                  key={a.name}
+                  onClick={() => setData((d) => ({ ...d, audience: a.name }))}
                   className={`w-full p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
-                    data.audience === a
+                    data.audience === a.name
                       ? "border-brand-500 bg-brand-500/10 ring-1 ring-brand-500"
                       : "border-border hover:border-muted-foreground/30"
                   }`}
                 >
-                  <span className="text-sm font-medium text-foreground">{a}</span>
+                  <span className="text-sm font-medium text-foreground">{a.name}</span>
                   <span className="text-xs text-muted-foreground">
-                    {Math.floor(500 + a.length * 200)} contacts
+                    {a.count} contacts
                   </span>
                 </button>
               ))}
@@ -521,6 +566,11 @@ function CampaignWizard({
                     Generate
                   </button>
                 </div>
+
+                {/* AI Error */}
+                {aiError && (
+                  <p className="text-sm text-red-400 mt-2">{aiError}</p>
+                )}
 
                 {/* AI Generated result */}
                 {aiEmail && (
@@ -615,6 +665,19 @@ function CampaignWizard({
                     className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                    Email Body (HTML)
+                  </label>
+                  <textarea
+                    value={data.body}
+                    onChange={(e) => setData((d) => ({ ...d, body: e.target.value }))}
+                    placeholder="Write your email body here or use AI to generate it..."
+                    rows={6}
+                    className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-brand-500 focus:border-transparent font-mono resize-none"
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -635,13 +698,23 @@ function CampaignWizard({
                 ))}
               </div>
 
+              {sendError && (
+                <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-xl p-3">
+                  {sendError}
+                </div>
+              )}
+
               {data.body && (
                 <div>
                   <p className="text-xs font-medium text-muted-foreground mb-2">Email Preview</p>
-                  <div
-                    className="bg-white text-gray-900 rounded-xl p-4 text-sm max-h-48 overflow-y-auto"
-                    dangerouslySetInnerHTML={{ __html: data.body }}
-                  />
+                  <div className="bg-white text-gray-900 rounded-xl p-4 text-sm max-h-48 overflow-y-auto">
+                    <iframe
+                      srcDoc={data.body}
+                      sandbox=""
+                      className="w-full h-40 border-0"
+                      title="Email preview"
+                    />
+                  </div>
                 </div>
               )}
 

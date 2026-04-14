@@ -31,27 +31,25 @@ export default function DashboardPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [contactCount, setContactCount] = useState(0);
+
   useEffect(() => {
-    fetch("/api/campaigns")
-      .then((r) => r.json())
-      .then((data) => {
-        setCampaigns(data.campaigns ?? []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    Promise.all([
+      fetch("/api/campaigns").then((r) => r.ok ? r.json() : { campaigns: [] }),
+      fetch("/api/contacts").then((r) => r.ok ? r.json() : { contacts: [] }),
+      fetch("/api/analytics?type=growth").then((r) => r.ok ? r.json() : { data: [] }),
+    ]).then(([campData, contactData, growthData]) => {
+      setCampaigns(campData.campaigns ?? []);
+      setContactCount((contactData.contacts ?? []).length);
+      setChartData(growthData.data ?? []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
   }, []);
 
   const [chartData, setChartData] = useState<{ month: string; subscribers: number; unsubscribes: number }[]>([]);
 
-  useEffect(() => {
-    fetch("/api/analytics?type=growth")
-      .then((r) => r.json())
-      .then((data) => setChartData(data.data ?? []))
-      .catch(() => {});
-  }, []);
-
   const sentCampaigns = campaigns.filter((c) => c.status === "Sent");
-  const totalContacts = 12; // From mock data
+  const totalContacts = contactCount;
   const avgOpen = sentCampaigns.length
     ? (sentCampaigns.reduce((a, c) => a + c.openRate, 0) / sentCampaigns.length).toFixed(1)
     : "0";

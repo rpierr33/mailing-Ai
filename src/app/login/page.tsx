@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import { Send, Sparkles, ArrowRight } from "lucide-react";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -14,21 +13,42 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email || !password) {
+      setError("Please enter email and password");
+      return;
+    }
     setLoading(true);
     setError("");
 
-    // For demo, just redirect to dashboard
-    // In production, this would call signIn("credentials", ...)
-    if (email && password) {
-      router.push("/dashboard");
-    } else {
-      setError("Please enter email and password");
+    const result = await signIn("credentials", {
+      email,
+      password,
+      redirect: false,
+    });
+
+    if (result?.error) {
+      setError("Invalid email or password. For demo, use any email with password: demo");
+      setLoading(false);
+      return;
     }
-    setLoading(false);
+
+    window.location.href = "/dashboard";
   };
 
-  const handleDemoLogin = () => {
-    router.push("/dashboard");
+  const handleDemoLogin = async () => {
+    setLoading(true);
+    setError("");
+    const result = await signIn("credentials", {
+      email: "demo@mailflow.ai",
+      password: "demo",
+      redirect: false,
+    });
+    if (result?.error) {
+      setError("Demo login failed. Please try again.");
+      setLoading(false);
+      return;
+    }
+    window.location.href = "/dashboard";
   };
 
   return (
