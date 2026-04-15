@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const campaign = getCampaign(parsed.data.campaignId);
+    const campaign = await getCampaign(parsed.data.campaignId);
     if (!campaign) {
       return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
     }
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Full send — scope to the caller's contacts only.
-    const contacts = getContacts().filter((c) => c.userId === user.id);
+    const contacts = await getContacts(user.id);
     const recipients = contacts.map((c) => c.email);
 
     if (recipients.length === 0) {
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (result.success) {
-      updateCampaign(campaign.id, {
+      await updateCampaign(campaign.id, {
         status: "Sent",
         sentAt: new Date().toISOString(),
         recipients: recipients.length,

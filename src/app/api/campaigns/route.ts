@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCampaigns, addCampaign, deleteCampaign, updateCampaign, getContacts } from "@/lib/db";
+import { getCampaigns, getCampaign, addCampaign, deleteCampaign, updateCampaign, getContacts } from "@/lib/db";
 import { campaignCreateSchema } from "@/lib/validations";
 import { requireAuth, pickAllowed } from "@/lib/auth-guard";
 import type { Campaign } from "@/types";
@@ -23,7 +23,7 @@ export async function GET() {
   const { user, unauthorized } = await requireAuth();
   if (unauthorized) return unauthorized;
 
-  const campaigns = getCampaigns().filter((c) => c.userId === user.id);
+  const campaigns = await getCampaigns(user.id);
   return NextResponse.json({ campaigns });
 }
 
@@ -46,9 +46,10 @@ export async function POST(request: NextRequest) {
     const status = data.scheduleType === "schedule" ? "Scheduled" : "Sent";
     // Real recipient count pulled from this user's contacts instead of
     // the prior Math.random() placeholder.
-    const recipients = getContacts().filter((c) => c.userId === user.id).length;
+    const userContacts = await getContacts(user.id);
+    const recipients = userContacts.length;
 
-    const campaign = addCampaign({
+    const campaign = await addCampaign({
       name: data.name,
       subject: data.subject,
       previewText: data.previewText ?? null,
@@ -86,13 +87,12 @@ export async function DELETE(request: NextRequest) {
   }
 
   // Verify the caller owns this campaign before deleting.
-  const campaigns = getCampaigns();
-  const target = campaigns.find((c) => c.id === id);
+  const target = await getCampaign(id);
   if (!target || target.userId !== user.id) {
     return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
   }
 
-  const deleted = deleteCampaign(id);
+  const deleted = await deleteCampaign(id);
   if (!deleted) {
     return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
   }
@@ -111,15 +111,14 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Missing id" }, { status: 400 });
     }
 
-    const campaigns = getCampaigns();
-    const target = campaigns.find((c) => c.id === id);
+    const target = await getCampaign(id);
     if (!target || target.userId !== user.id) {
       return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
     }
 
     const body = await request.json();
     const patch = pickAllowed(body, CAMPAIGN_PATCH_FIELDS) as Partial<Campaign>;
-    const campaign = updateCampaign(id, patch);
+    const campaign = await updateCampaign(id, patch);
 
     if (!campaign) {
       return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
